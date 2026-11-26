@@ -7,8 +7,8 @@ brief (honesty first, then politeness, then the turn of phrase). It is
 built in two clauses: the polite version of the message, then the honest
 version — the reply performs the honesty it claims. The program checks
 the result against the entry gate (length, single line, no leading or
-trailing space) before writing it, then reads the file back to confirm
-the bytes match.
+trailing space, single sentence, two-clause structure, ASCII only)
+before writing it, then reads the file back to confirm the bytes match.
 """
 
 import os
@@ -20,15 +20,29 @@ LINE = (
 )
 
 
+def check_gate(line):
+    """Fail loudly unless the line satisfies every entry-gate rule."""
+    if not (1 <= len(line) <= 200):
+        sys.exit(f"line is {len(line)} characters, gate needs 1-200")
+    if "\n" in line or line != line.strip():
+        sys.exit("line must be a single line with no surrounding space")
+    if line.count(".") != 1 or not line.endswith("."):
+        sys.exit("line must be a single sentence")
+    if "  " in line:
+        sys.exit("line must not contain double spaces")
+    try:
+        line.encode("ascii")
+    except UnicodeEncodeError:
+        sys.exit("line must be plain ASCII")
+    for clause in ("the polite version", "the honest version"):
+        if clause not in line:
+            sys.exit(f"line is missing the {clause!r} clause")
+
+
 def main():
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
     path = os.path.join(out_dir, "entry.txt")
-    if not (1 <= len(LINE) <= 200):
-        sys.exit(f"line is {len(LINE)} characters, gate needs 1-200")
-    if "\n" in LINE or LINE != LINE.strip():
-        sys.exit("line must be a single line with no surrounding space")
-    if LINE.count(".") != 1 or not LINE.endswith("."):
-        sys.exit("line must be a single sentence")
+    check_gate(LINE)
     data = (LINE + "\n").encode("utf-8")
     os.makedirs(out_dir, exist_ok=True)
     with open(path, "wb") as f:
@@ -37,6 +51,8 @@ def main():
     with open(path, "rb") as f:
         if f.read() != data:
             sys.exit("read-back mismatch")
+    if os.path.getsize(path) != len(data):
+        sys.exit("written file size does not match expected bytes")
     print(f"wrote {len(data)} bytes to {path}")
 
 
